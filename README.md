@@ -7,7 +7,6 @@
 [![No Dependencies](https://img.shields.io/badge/dependencies-none-blue)](repoverse.html)
 [![Play Now](https://img.shields.io/badge/▶%20Play-Live%20Demo-7c3aed)](https://your-username.github.io/repoverse)
 
-![RepoVerse Screenshot](screenshot.png)
 
 ---
 
