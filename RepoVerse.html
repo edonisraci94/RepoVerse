@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GitGalaxy — Explore the Open Source Universe</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Satoshi:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --font-display: 'JetBrains Mono', monospace;
+    --font-body: 'Satoshi', sans-serif;
+    --color-bg: #070710;
+    --color-surface: rgba(255,255,255,0.04);
+    --color-border: rgba(255,255,255,0.10);
+    --color-text: #e2e2f0;
+    --color-muted: #8888aa;
+    --color-accent: #a78bfa;
+    --panel-blur: 14px;
+    --radius: 10px;
+    --space-2: 8px; --space-3: 12px; --space-4: 16px; --space-6: 24px;
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 100%; height: 100%; overflow: hidden; background: var(--color-bg); }
+  body { font-family: var(--font-body); color: var(--color-text); }
+  #canvas { display: block; position: fixed; inset: 0; }
+  #hud {
+    position: fixed; top: 16px; right: 16px;
+    display: flex; flex-direction: column; gap: 6px; pointer-events: none; z-index: 10;
+    font-family: var(--font-display); font-size: 12px; text-align: right;
+  }
+  .hud-chip {
+    background: rgba(7,7,16,0.75); border: 1px solid var(--color-border);
+    backdrop-filter: blur(var(--panel-blur)); border-radius: 6px;
+    padding: 5px 10px; color: var(--color-text); font-variant-numeric: tabular-nums;
+  }
+  .hud-chip span { color: var(--color-accent); }
+  #boost-bar-wrap {
+    position: fixed; bottom: 18px; right: 16px; width: 130px; pointer-events: none; z-index: 10;
+    font-family: var(--font-display); font-size: 11px; color: var(--color-muted);
+  }
+  #boost-label { margin-bottom: 4px; text-align: right; }
+  #boost-track { height: 6px; background: rgba(255,255,255,0.08); border-radius: 3px; overflow: hidden; }
+  #boost-fill { height: 100%; background: linear-gradient(90deg, #7c3aed, #c084fc); border-radius: 3px; transition: width 0.1s; }
+  #controls {
+    position: fixed; top: 16px; left: 16px; z-index: 10; pointer-events: none;
+    font-family: var(--font-display); font-size: 11px;
+    background: rgba(7,7,16,0.75); border: 1px solid var(--color-border);
+    backdrop-filter: blur(var(--panel-blur)); border-radius: 6px;
+    padding: 8px 12px; color: var(--color-muted); line-height: 1.8;
+  }
+  #controls strong { color: var(--color-accent); }
+  #minimap-wrap { position: fixed; bottom: 18px; left: 16px; z-index: 10; pointer-events: none; }
+  #minimap { border: 1px solid rgba(167,139,250,0.3); border-radius: 6px; background: rgba(7,7,16,0.8); }
+  #info-panel {
+    position: fixed; left: 50%; bottom: 30px; transform: translateX(-50%);
+    width: min(480px, 92vw); z-index: 20; display: none;
+    background: rgba(10,10,25,0.92); border: 1px solid rgba(167,139,250,0.35);
+    backdrop-filter: blur(18px); border-radius: var(--radius);
+    padding: var(--space-6); font-family: var(--font-body);
+  }
+  #info-panel.visible { display: block; animation: panel-in 0.22s cubic-bezier(0.16,1,0.3,1); }
+  @keyframes panel-in {
+    from { opacity: 0; transform: translateX(-50%) translateY(12px); }
+    to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+  }
+  #info-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
+  #info-name { font-size: 18px; font-weight: 700; color: #fff; letter-spacing: -0.3px; }
+  #info-lang-badge {
+    font-family: var(--font-display); font-size: 11px;
+    padding: 3px 8px; border-radius: 4px; font-weight: 600;
+    background: rgba(167,139,250,0.18); color: var(--color-accent);
+    white-space: nowrap; margin-top: 2px;
+  }
+  #info-owner { font-size: 13px; color: var(--color-muted); margin-bottom: 8px; }
+  #info-desc { font-size: 14px; color: #c0c0d8; line-height: 1.55; margin-bottom: 12px; }
+  #info-stats { display: flex; gap: 20px; margin-bottom: 14px; }
+  .stat { font-family: var(--font-display); font-size: 13px; }
+  .stat-val { color: #fff; font-weight: 700; font-size: 15px; }
+  .stat-label { color: var(--color-muted); font-size: 11px; margin-top: 1px; }
+  #info-link {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: rgba(167,139,250,0.15); border: 1px solid rgba(167,139,250,0.3);
+    color: var(--color-accent); text-decoration: none; border-radius: 6px;
+    padding: 7px 14px; font-size: 13px; font-weight: 600;
+    transition: background 180ms, border-color 180ms;
+  }
+  #info-link:hover { background: rgba(167,139,250,0.25); border-color: rgba(167,139,250,0.6); }
+  #info-close {
+    font-family: var(--font-display); font-size: 11px; color: var(--color-muted);
+    margin-left: auto; cursor: pointer; padding: 4px 8px; border-radius: 4px;
+    border: 1px solid rgba(255,255,255,0.1); background: transparent;
+    pointer-events: auto; transition: color 0.15s;
+  }
+  #info-close:hover { color: #fff; }
+  #toast {
+    position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+    font-family: var(--font-display); font-size: 13px;
+    background: rgba(10,10,25,0.9); border: 1px solid rgba(167,139,250,0.4);
+    color: var(--color-accent); padding: 8px 18px; border-radius: 6px;
+    pointer-events: none; z-index: 30; display: none; white-space: nowrap;
+  }
+  #title-screen {
+    position: fixed; inset: 0; z-index: 100; display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    background: radial-gradient(ellipse at center, #0d0b2a 0%, #07070f 70%);
+  }
+  #title-logo {
+    font-family: var(--font-display); font-size: clamp(2.5rem,6vw,4.5rem);
+    font-weight: 700; color: #fff; letter-spacing: -2px; margin-bottom: 6px;
+  }
+  #title-logo span { color: var(--color-accent); }
+  #title-sub { font-size: 15px; color: var(--color-muted); margin-bottom: 40px; letter-spacing: 0.5px; }
+  #title-btn {
+    font-family: var(--font-display); font-size: 14px; font-weight: 600;
+    background: linear-gradient(135deg, #7c3aed, #a78bfa);
+    border: none; color: #fff; padding: 12px 36px; border-radius: 8px;
+    cursor: pointer; letter-spacing: 0.5px;
+    box-shadow: 0 0 30px rgba(167,139,250,0.3);
+    transition: transform 0.15s, box-shadow 0.15s;
+  }
+  #title-btn:hover { transform: scale(1.04); box-shadow: 0 0 50px rgba(167,139,250,0.5); }
+  #title-stars-canvas { position: absolute; inset: 0; z-index: -1; }
+  #proximity-hint {
+    position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%);
+    font-family: var(--font-display); font-size: 13px; color: #fff;
+    background: rgba(167,139,250,0.18); border: 1px solid rgba(167,139,250,0.4);
+    padding: 6px 16px; border-radius: 6px; pointer-events: none; z-index: 15;
+    display: none; animation: pulse-hint 1.5s ease-in-out infinite;
+  }
+  @keyframes pulse-hint { 0%,100%{opacity:0.7} 50%{opacity:1} }
+</style>
+</head>
+<body>
+
+<div id="title-screen">
+  <canvas id="title-stars-canvas"></canvas>
+  <div id="title-logo">Git<span>Galaxy</span></div>
+  <div id="title-sub">Navigate 50 legendary open source planets</div>
+  <button id="title-btn">🚀 Launch Explorer</button>
+</div>
+
+<canvas id="canvas"></canvas>
+
+<div id="hud">
+  <div class="hud-chip">🪐 Found <span id="hud-found">0</span>/50</div>
+  <div class="hud-chip">⭐ Stars <span id="hud-stars">0</span></div>
+  <div class="hud-chip">⚡ Speed <span id="hud-speed">0</span></div>
+</div>
+
+<div id="controls">
+  <strong>W/↑</strong> Thrust &nbsp; <strong>S/↓</strong> Brake<br>
+  <strong>A/←</strong> Turn Left &nbsp; <strong>D/→</strong> Turn Right<br>
+  <strong>Shift</strong> Boost &nbsp; <strong>E</strong> Explore Planet<br>
+  <strong>Esc</strong> Close Panel
+</div>
+
+<div id="boost-bar-wrap">
+  <div id="boost-label">BOOST</div>
+  <div id="boost-track"><div id="boost-fill" style="width:100%"></div></div>
+</div>
+
+<div id="minimap-wrap">
+  <canvas id="minimap" width="130" height="130"></canvas>
+</div>
+
+<div id="proximity-hint">[ E ] Explore</div>
+
+<div id="info-panel">
+  <div id="info-header">
+    <div>
+      <div id="info-name">Repo Name</div>
+      <div id="info-owner">owner/repo</div>
+    </div>
+    <div id="info-lang-badge">Python</div>
+    <button id="info-close">ESC</button>
+  </div>
+  <div id="info-desc">Description goes here.</div>
+  <div id="info-stats">
+    <div class="stat"><div class="stat-val" id="info-stars-val">0</div><div class="stat-label">⭐ Stars</div></div>
+    <div class="stat"><div class="stat-val" id="info-forks-val">0</div><div class="stat-label">🍴 Forks</div></div>
+    <div class="stat"><div class="stat-val" id="info-lang-val">—</div><div class="stat-label">Language</div></div>
+  </div>
+  <a id="info-link" href="#" target="_blank" rel="noopener noreferrer">
+    <svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.3 3.44 9.8 8.2 11.38.6.11.82-.26.82-.58v-2.03c-3.34.72-4.04-1.6-4.04-1.6-.55-1.4-1.34-1.77-1.34-1.77-1.09-.74.08-.73.08-.73 1.2.08 1.84 1.24 1.84 1.24 1.07 1.83 2.8 1.3 3.48 1 .1-.78.42-1.3.76-1.6-2.67-.3-5.47-1.33-5.47-5.93 0-1.31.47-2.38 1.24-3.22-.12-.3-.54-1.52.12-3.17 0 0 1.01-.32 3.3 1.23A11.5 11.5 0 0 1 12 6.8c1.02 0 2.04.14 3 .4 2.28-1.55 3.29-1.23 3.29-1.23.66 1.65.24 2.87.12 3.17.77.84 1.23 1.9 1.23 3.22 0 4.61-2.8 5.63-5.48 5.92.43.37.81 1.1.81 2.22v3.29c0 .32.22.7.83.58C20.56 21.8 24 17.3 24 12c0-6.63-5.37-12-12-12z"/></svg>
+    View on GitHub
+  </a>
+</div>
+
+<div id="toast"></div>
+
+<script>
+const REPOS = [
+  {name:"freeCodeCamp",owner:"freeCodeCamp",stars:402000,forks:37000,lang:"JavaScript",desc:"freeCodeCamp.org's open-source codebase and curriculum",color:"#f7df1e"},
+  {name:"linux",owner:"torvalds",stars:181000,forks:53000,lang:"C",desc:"Linux kernel source tree",color:"#aaaacc"},
+  {name:"tensorflow",owner:"tensorflow",stars:186000,forks:74000,lang:"C++",desc:"An Open Source Machine Learning Framework for Everyone",color:"#ff6f00"},
+  {name:"react",owner:"facebook",stars:229000,forks:47000,lang:"JavaScript",desc:"The library for web and native user interfaces",color:"#61dafb"},
+  {name:"vue",owner:"vuejs",stars:208000,forks:33000,lang:"TypeScript",desc:"The Progressive JavaScript Framework",color:"#42b883"},
+  {name:"bootstrap",owner:"twbs",stars:170000,forks:79000,lang:"JavaScript",desc:"The most popular HTML/CSS/JS framework for mobile-first sites",color:"#7952b3"},
+  {name:"vscode",owner:"microsoft",stars:163000,forks:29000,lang:"TypeScript",desc:"Visual Studio Code — Redefined and optimized",color:"#007acc"},
+  {name:"angular",owner:"angular",stars:96000,forks:25000,lang:"TypeScript",desc:"The modern web developer's platform",color:"#dd0031"},
+  {name:"next.js",owner:"vercel",stars:126000,forks:27000,lang:"JavaScript",desc:"The React Framework for the Web",color:"#ccccff"},
+  {name:"pytorch",owner:"pytorch",stars:83000,forks:22000,lang:"Python",desc:"Tensors and Dynamic neural networks in Python",color:"#ee4c2c"},
+  {name:"transformers",owner:"huggingface",stars:133000,forks:26000,lang:"Python",desc:"State-of-the-art Machine Learning for PyTorch, TensorFlow & JAX",color:"#ffcc00"},
+  {name:"scikit-learn",owner:"scikit-learn",stars:59000,forks:25000,lang:"Python",desc:"Machine learning in Python",color:"#f7931e"},
+  {name:"keras",owner:"keras-team",stars:62000,forks:19000,lang:"Python",desc:"Deep learning for humans",color:"#d00000"},
+  {name:"pandas",owner:"pandas-dev",stars:43000,forks:18000,lang:"Python",desc:"Flexible and powerful data analysis / manipulation library",color:"#9b59b6"},
+  {name:"numpy",owner:"numpy",stars:27000,forks:8500,lang:"Python",desc:"The fundamental package for scientific computing with Python",color:"#4dabf7"},
+  {name:"django",owner:"django",stars:81000,forks:32000,lang:"Python",desc:"The Web framework for perfectionists with deadlines",color:"#44b78b"},
+  {name:"flask",owner:"pallets",stars:68000,forks:16000,lang:"Python",desc:"The Python micro framework for building web applications",color:"#aaaaaa"},
+  {name:"fastapi",owner:"tiangolo",stars:78000,forks:6600,lang:"Python",desc:"FastAPI framework, high performance, easy to learn, production ready",color:"#009485"},
+  {name:"llama.cpp",owner:"ggerganov",stars:68000,forks:9600,lang:"C++",desc:"LLM inference in C/C++",color:"#f34b7d"},
+  {name:"stable-diffusion-webui",owner:"AUTOMATIC1111",stars:143000,forks:27000,lang:"Python",desc:"Stable Diffusion web UI",color:"#3572a5"},
+  {name:"langchain",owner:"langchain-ai",stars:92000,forks:14000,lang:"Python",desc:"Build context-aware reasoning applications",color:"#1c9488"},
+  {name:"ollama",owner:"ollama",stars:90000,forks:7300,lang:"Go",desc:"Get up and running with Llama 3, Mistral and other LLMs locally",color:"#00add8"},
+  {name:"kubernetes",owner:"kubernetes",stars:111000,forks:39000,lang:"Go",desc:"Production-Grade Container Scheduling and Management",color:"#326ce5"},
+  {name:"docker",owner:"moby",stars:68000,forks:18000,lang:"Go",desc:"Moby: the open-source application container engine",color:"#0db7ed"},
+  {name:"rust",owner:"rust-lang",stars:98000,forks:12700,lang:"Rust",desc:"Empowering everyone to build reliable and efficient software",color:"#dea584"},
+  {name:"svelte",owner:"sveltejs",stars:79000,forks:4100,lang:"JavaScript",desc:"Cybernetically enhanced web apps",color:"#ff3e00"},
+  {name:"gin",owner:"gin-gonic",stars:78000,forks:8000,lang:"Go",desc:"Gin is a HTTP web framework written in Go",color:"#00c7b7"},
+  {name:"redis",owner:"redis",stars:66000,forks:23000,lang:"C",desc:"Redis is an in-memory database that persists on disk",color:"#dc382d"},
+  {name:"elasticsearch",owner:"elastic",stars:70000,forks:25000,lang:"Java",desc:"Free and Open, Distributed, RESTful Search Engine",color:"#005571"},
+  {name:"bitcoin",owner:"bitcoin",stars:79000,forks:36000,lang:"C++",desc:"Bitcoin Core integration/staging tree",color:"#f7931a"},
+  {name:"godot",owner:"godotengine",stars:89000,forks:20000,lang:"C++",desc:"Godot Engine – Multi-platform 2D and 3D game engine",color:"#478cbf"},
+  {name:"swift",owner:"apple",stars:67000,forks:10400,lang:"C++",desc:"The Swift Programming Language",color:"#f05138"},
+  {name:"spring-boot",owner:"spring-projects",stars:75000,forks:41000,lang:"Java",desc:"Spring Boot helps you create Spring-powered apps",color:"#6db33f"},
+  {name:"laravel",owner:"laravel",stars:78000,forks:24000,lang:"PHP",desc:"A PHP Framework For Web Artisans",color:"#fb503b"},
+  {name:"shadcn-ui",owner:"shadcn",stars:73000,forks:4700,lang:"TypeScript",desc:"Beautifully designed components built with Radix UI and Tailwind CSS",color:"#ccccff"},
+  {name:"tailwindcss",owner:"tailwindlabs",stars:83000,forks:4300,lang:"JavaScript",desc:"A utility-first CSS framework for rapid UI development",color:"#38bdf8"},
+  {name:"three.js",owner:"mrdoob",stars:102000,forks:35000,lang:"JavaScript",desc:"JavaScript 3D Library",color:"#049ef4"},
+  {name:"d3",owner:"d3",stars:108000,forks:23000,lang:"JavaScript",desc:"Bring data to life with SVG, Canvas and HTML",color:"#f68b1e"},
+  {name:"nodejs",owner:"nodejs",stars:106000,forks:29000,lang:"JavaScript",desc:"Node.js JavaScript runtime",color:"#68a063"},
+  {name:"deno",owner:"denoland",stars:93000,forks:5200,lang:"Rust",desc:"A modern runtime for JavaScript and TypeScript",color:"#aaaacc"},
+  {name:"ansible",owner:"ansible",stars:62000,forks:37000,lang:"Python",desc:"Ansible is a radically simple IT automation system",color:"#ee0000"},
+  {name:"airflow",owner:"apache",stars:37000,forks:14000,lang:"Python",desc:"Apache Airflow — programmatically author, schedule, and monitor workflows",color:"#017cee"},
+  {name:"celery",owner:"celery",stars:25000,forks:5100,lang:"Python",desc:"Distributed Task Queue",color:"#37814a"},
+  {name:"grafana",owner:"grafana",stars:63000,forks:12000,lang:"TypeScript",desc:"The open and composable observability and data visualization platform",color:"#f46800"},
+  {name:"supabase",owner:"supabase",stars:72000,forks:7000,lang:"TypeScript",desc:"The open source Firebase alternative",color:"#3ecf8e"},
+  {name:"prisma",owner:"prisma",stars:39000,forks:1500,lang:"TypeScript",desc:"Next-generation ORM for Node.js & TypeScript",color:"#5a67d8"},
+  {name:"prettier",owner:"prettier",stars:49000,forks:4200,lang:"JavaScript",desc:"Prettier is an opinionated code formatter",color:"#f7ba3e"},
+  {name:"jest",owner:"jestjs",stars:44000,forks:6500,lang:"JavaScript",desc:"Delightful JavaScript Testing",color:"#c84b7a"},
+  {name:"neovim",owner:"neovim",stars:83000,forks:5800,lang:"Vim Script",desc:"Vim-fork focused on extensibility and usability",color:"#57a143"},
+  {name:"ohmyzsh",owner:"ohmyzsh",stars:172000,forks:26000,lang:"Shell",desc:"A delightful community-driven framework for managing your zsh configuration",color:"#c5f467"},
+];
+
+const WORLD_SIZE = 6000;
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+const minimap = document.getElementById('minimap');
+const mctx = minimap.getContext('2d');
+let W, H;
+function resize() { W = canvas.width = window.innerWidth; H = canvas.height = window.innerHeight; }
+resize();
+window.addEventListener('resize', resize);
+
+// Title starfield
+(function(){
+  const tc = document.getElementById('title-stars-canvas');
+  const tx = tc.getContext('2d');
+  tc.width = window.innerWidth; tc.height = window.innerHeight;
+  const tStars = Array.from({length:220}, () => ({
+    x: Math.random()*tc.width, y: Math.random()*tc.height,
+    r: Math.random()*1.5+0.3, a: Math.random(), da: (Math.random()-0.5)*0.008
+  }));
+  function drawTS() {
+    tx.clearRect(0,0,tc.width,tc.height);
+    tStars.forEach(s => {
+      s.a = Math.max(0.1, Math.min(1, s.a + s.da));
+      if (s.a <= 0.1 || s.a >= 1) s.da *= -1;
+      tx.beginPath(); tx.arc(s.x,s.y,s.r,0,Math.PI*2);
+      tx.fillStyle=`rgba(200,200,255,${s.a})`; tx.fill();
+    });
+    requestAnimationFrame(drawTS);
+  }
+  drawTS();
+})();
+
+document.getElementById('title-btn').addEventListener('click', () => {
+  const ts = document.getElementById('title-screen');
+  ts.style.transition = 'opacity 0.6s'; ts.style.opacity = '0';
+  setTimeout(() => ts.style.display='none', 600);
+  startGame();
+});
+
+function logSize(stars) {
+  const minS=6, maxS=55, minLog=Math.log(1000), maxLog=Math.log(402000);
+  return minS + (Math.log(Math.max(1000,stars))-minLog)/(maxLog-minLog)*(maxS-minS);
+}
+
+const planets = REPOS.map((repo,i) => {
+  const angle = (i/REPOS.length)*Math.PI*2 + Math.random()*0.5;
+  const dist = 600 + Math.random()*(WORLD_SIZE*0.4);
+  return {
+    ...repo,
+    x: WORLD_SIZE/2 + Math.cos(angle)*dist,
+    y: WORLD_SIZE/2 + Math.sin(angle)*dist,
+    radius: logSize(repo.stars),
+    discovered: false,
+    glowT: Math.random()*Math.PI*2,
+    hasMoon: Math.random()<0.4,
+    moonAngle: Math.random()*Math.PI*2,
+    moonSpeed: (Math.random()-0.5)*0.02+0.01,
+    hasRing: repo.stars > 80000,
+  };
+});
+
+const player = { x:WORLD_SIZE/2, y:WORLD_SIZE/2, angle:-Math.PI/2, vx:0, vy:0, boost:1, boostRecharging:false, thrusting:false };
+const THRUST=200, MAX_SPEED=320, BOOST_MUL=2.8, TURN_SPEED=2.8, DRAG=0.985, BOOST_DRAIN=0.4, BOOST_RECHARGE=0.15;
+
+const STAR_LAYERS = [0.05,0.25,0.6].map((speed,li) => ({
+  speed,
+  stars: Array.from({length:li===0?300:li===1?200:120}, ()=>({
+    x:Math.random()*WORLD_SIZE*1.5, y:Math.random()*WORLD_SIZE*1.5,
+    r:(li+1)*0.4+Math.random()*(li*0.5+0.5), a:0.2+Math.random()*0.8
+  }))
+}));
+
+const NEBULAE = Array.from({length:14}, ()=>({
+  x:Math.random()*WORLD_SIZE, y:Math.random()*WORLD_SIZE,
+  rx:150+Math.random()*300, ry:100+Math.random()*200,
+  rot:Math.random()*Math.PI,
+  hue:[260,200,320,170][Math.floor(Math.random()*4)],
+  a:0.04+Math.random()*0.06
+}));
+
+const particles = [];
+function spawnParticles(x,y,angle,boosting) {
+  const n = boosting?5:2;
+  for(let i=0;i<n;i++){
+    const spread=(Math.random()-0.5)*0.7, spd=80+Math.random()*120;
+    particles.push({
+      x,y, vx:Math.cos(angle+Math.PI+spread)*spd+player.vx*0.3,
+      vy:Math.sin(angle+Math.PI+spread)*spd+player.vy*0.3,
+      life:0.4+Math.random()*0.4, maxLife:0.8,
+      size:boosting?3+Math.random()*3:1.5+Math.random()*2, boosting
+    });
+  }
+}
+
+const keys = {};
+document.addEventListener('keydown', e=>{ keys[e.code]=true; });
+document.addEventListener('keyup', e=>{ keys[e.code]=false; });
+document.addEventListener('keydown', e=>{
+  if(e.code==='KeyE') tryExplore();
+  if(e.code==='Escape') closePanel();
+});
+document.getElementById('info-close').addEventListener('click', closePanel);
+
+const hudFound=document.getElementById('hud-found');
+const hudStars=document.getElementById('hud-stars');
+const hudSpeed=document.getElementById('hud-speed');
+const boostFill=document.getElementById('boost-fill');
+const proximityHint=document.getElementById('proximity-hint');
+const toast=document.getElementById('toast');
+let toastTimer=null, nearestPlanet=null, totalStars=0;
+
+function showToast(msg){ toast.textContent=msg; toast.style.display='block'; clearTimeout(toastTimer); toastTimer=setTimeout(()=>toast.style.display='none',2500); }
+function formatNum(n){ return n>=1000?(n/1000).toFixed(1)+'k':n.toString(); }
+function tryExplore(){ if(!nearestPlanet) return; const d=Math.hypot(player.x-nearestPlanet.x,player.y-nearestPlanet.y); if(d<nearestPlanet.radius+130) openPanel(nearestPlanet); }
+function openPanel(p){
+  document.getElementById('info-name').textContent=p.name;
+  document.getElementById('info-owner').textContent=p.owner+'/'+p.name;
+  document.getElementById('info-lang-badge').textContent=p.lang;
+  document.getElementById('info-desc').textContent=p.desc;
+  document.getElementById('info-stars-val').textContent=formatNum(p.stars);
+  document.getElementById('info-forks-val').textContent=formatNum(p.forks);
+  document.getElementById('info-lang-val').textContent=p.lang;
+  document.getElementById('info-link').href='https://github.com/'+p.owner+'/'+p.name;
+  const panel=document.getElementById('info-panel');
+  panel.classList.remove('visible'); void panel.offsetWidth; panel.classList.add('visible');
+}
+function closePanel(){ document.getElementById('info-panel').classList.remove('visible'); }
+
+let lastTime=0;
+function startGame(){ requestAnimationFrame(loop); }
+function loop(ts){
+  requestAnimationFrame(loop);
+  const dt=Math.min((ts-lastTime)/1000,0.05); lastTime=ts;
+  update(dt); render(ts);
+}
+
+function update(dt){
+  if(keys['KeyA']||keys['ArrowLeft']) player.angle-=TURN_SPEED*dt;
+  if(keys['KeyD']||keys['ArrowRight']) player.angle+=TURN_SPEED*dt;
+  const boosting=(keys['ShiftLeft']||keys['ShiftRight'])&&player.boost>0;
+  const thrusting=keys['KeyW']||keys['ArrowUp'];
+  const braking=keys['KeyS']||keys['ArrowDown'];
+  const speedMul=boosting?BOOST_MUL:1;
+  if(boosting){ player.boost=Math.max(0,player.boost-BOOST_DRAIN*dt); if(player.boost===0) player.boostRecharging=true; }
+  else { if(player.boostRecharging&&player.boost<0.15){} else { player.boostRecharging=false; player.boost=Math.min(1,player.boost+BOOST_RECHARGE*dt); } }
+  if(thrusting){ player.vx+=Math.cos(player.angle)*THRUST*speedMul*dt; player.vy+=Math.sin(player.angle)*THRUST*speedMul*dt; }
+  if(braking){ player.vx*=1-4*dt; player.vy*=1-4*dt; }
+  const spd=Math.hypot(player.vx,player.vy), maxSpd=MAX_SPEED*(boosting?BOOST_MUL:1);
+  if(spd>maxSpd){ player.vx=player.vx/spd*maxSpd; player.vy=player.vy/spd*maxSpd; }
+  player.vx*=DRAG; player.vy*=DRAG;
+  player.x+=player.vx*dt; player.y+=player.vy*dt;
+  player.x=((player.x%WORLD_SIZE)+WORLD_SIZE)%WORLD_SIZE;
+  player.y=((player.y%WORLD_SIZE)+WORLD_SIZE)%WORLD_SIZE;
+  player.thrusting=thrusting;
+  if(thrusting||boosting) spawnParticles(player.x,player.y,player.angle,boosting);
+  for(let i=particles.length-1;i>=0;i--){ const p=particles[i]; p.life-=dt; p.x+=p.vx*dt; p.y+=p.vy*dt; if(p.life<=0) particles.splice(i,1); }
+  nearestPlanet=null; let nearDist=Infinity; let discovered=0; totalStars=0;
+  planets.forEach(p=>{
+    p.glowT+=dt*1.2; p.moonAngle+=p.moonSpeed;
+    const d=Math.hypot(player.x-p.x,player.y-p.y);
+    if(d<p.radius+130){ if(!p.discovered){ p.discovered=true; showToast('🪐 Approaching '+p.owner+'/'+p.name); } if(d<nearDist){ nearDist=d; nearestPlanet=p; } }
+    if(p.discovered){ discovered++; totalStars+=p.stars; }
+  });
+  hudFound.textContent=discovered; hudStars.textContent=formatNum(totalStars);
+  hudSpeed.textContent=Math.round(Math.hypot(player.vx,player.vy));
+  boostFill.style.width=(player.boost*100)+'%';
+  proximityHint.style.display=nearestPlanet?'block':'none';
+}
+
+function render(ts){
+  ctx.clearRect(0,0,W,H);
+  const camX=player.x-W/2, camY=player.y-H/2;
+  ctx.fillStyle='#07070f'; ctx.fillRect(0,0,W,H);
+  STAR_LAYERS.forEach(layer=>{
+    layer.stars.forEach(s=>{
+      const sx=((s.x-camX*layer.speed)%(WORLD_SIZE*1.5)+WORLD_SIZE*1.5)%(WORLD_SIZE*1.5);
+      const sy=((s.y-camY*layer.speed)%(WORLD_SIZE*1.5)+WORLD_SIZE*1.5)%(WORLD_SIZE*1.5);
+      if(sx>W+2||sy>H+2||sx<-2||sy<-2) return;
+      ctx.beginPath(); ctx.arc(sx,sy,s.r,0,Math.PI*2);
+      ctx.fillStyle=`rgba(220,220,255,${s.a})`; ctx.fill();
+    });
+  });
+  NEBULAE.forEach(n=>{
+    const nx=n.x-camX, ny=n.y-camY;
+    if(nx<-n.rx*2||nx>W+n.rx*2||ny<-n.ry*2||ny>H+n.ry*2) return;
+    ctx.save(); ctx.translate(nx,ny); ctx.rotate(n.rot);
+    const grd=ctx.createRadialGradient(0,0,0,0,0,n.rx);
+    grd.addColorStop(0,`hsla(${n.hue},70%,50%,${n.a})`); grd.addColorStop(1,'transparent');
+    ctx.scale(1,n.ry/n.rx); ctx.beginPath(); ctx.arc(0,0,n.rx,0,Math.PI*2);
+    ctx.fillStyle=grd; ctx.fill(); ctx.restore();
+  });
+  particles.forEach(p=>{
+    const a=p.life/p.maxLife, px=p.x-camX, py=p.y-camY;
+    ctx.beginPath(); ctx.arc(px,py,p.size*a,0,Math.PI*2);
+    ctx.fillStyle=p.boosting?`rgba(192,132,252,${a*0.85})`:`rgba(167,139,250,${a*0.6})`; ctx.fill();
+  });
+  planets.forEach(p=>{
+    const px=p.x-camX, py=p.y-camY;
+    if(px<-p.radius*4||px>W+p.radius*4||py<-p.radius*4||py>H+p.radius*4) return;
+    const glow=Math.sin(p.glowT)*0.5+0.5, isNear=nearestPlanet===p;
+    if(p.hasRing){
+      ctx.save(); ctx.translate(px,py); ctx.scale(1,0.3);
+      ctx.beginPath(); ctx.arc(0,0,p.radius*1.7,0,Math.PI*2);
+      ctx.strokeStyle=p.color+'55'; ctx.lineWidth=p.radius*0.2; ctx.stroke(); ctx.restore();
+    }
+    const gr=p.radius*(2+glow*0.5+(isNear?1:0));
+    const rg=ctx.createRadialGradient(px,py,p.radius*0.5,px,py,gr);
+    rg.addColorStop(0,p.color+'60'); rg.addColorStop(1,'transparent');
+    ctx.beginPath(); ctx.arc(px,py,gr,0,Math.PI*2); ctx.fillStyle=rg; ctx.fill();
+    const bg=ctx.createRadialGradient(px-p.radius*0.3,py-p.radius*0.3,p.radius*0.1,px,py,p.radius);
+    bg.addColorStop(0,lighten(p.color,50)); bg.addColorStop(0.6,p.color); bg.addColorStop(1,darken(p.color,40));
+    ctx.beginPath(); ctx.arc(px,py,p.radius,0,Math.PI*2); ctx.fillStyle=bg; ctx.fill();
+    if(p.hasMoon){
+      const md=p.radius*2.2,mr=p.radius*0.22;
+      const mx=px+Math.cos(p.moonAngle)*md, my=py+Math.sin(p.moonAngle)*md;
+      ctx.beginPath(); ctx.arc(mx,my,mr,0,Math.PI*2); ctx.fillStyle='#aaaacc'; ctx.fill();
+    }
+    if(isNear){
+      ctx.save(); ctx.setLineDash([6,4]);
+      ctx.beginPath(); ctx.arc(px,py,p.radius+60,0,Math.PI*2);
+      ctx.strokeStyle='rgba(167,139,250,0.5)'; ctx.lineWidth=1.5; ctx.stroke(); ctx.restore();
+    }
+    if(isNear||p.radius>30){
+      ctx.font=`${Math.max(11,p.radius*0.4)}px 'JetBrains Mono',monospace`;
+      ctx.textAlign='center';
+      ctx.fillStyle=isNear?'#fff':'rgba(220,220,255,0.7)';
+      ctx.fillText(p.name,px,py+p.radius+16);
+    }
+    if(isNear){
+      ctx.font='11px JetBrains Mono,monospace'; ctx.fillStyle='#a78bfa';
+      ctx.fillText('⭐ '+formatNum(p.stars),px,py+p.radius+30);
+    }
+  });
+  drawShip(ctx,W/2,H/2,player.angle,player.thrusting,(keys['ShiftLeft']||keys['ShiftRight']));
+  drawMinimap();
+}
+
+function drawShip(ctx,x,y,angle,thrusting,boosting){
+  ctx.save(); ctx.translate(x,y); ctx.rotate(angle);
+  if(thrusting){
+    const eg=ctx.createRadialGradient(-14,0,0,-14,0,boosting?22:14);
+    eg.addColorStop(0,boosting?'rgba(192,132,252,0.9)':'rgba(100,100,255,0.8)'); eg.addColorStop(1,'transparent');
+    ctx.beginPath(); ctx.arc(-14,0,boosting?22:14,0,Math.PI*2); ctx.fillStyle=eg; ctx.fill();
+  }
+  ctx.beginPath(); ctx.moveTo(16,0); ctx.lineTo(-10,-8); ctx.lineTo(-6,0); ctx.lineTo(-10,8); ctx.closePath();
+  const sg=ctx.createLinearGradient(-10,-8,16,8);
+  sg.addColorStop(0,'#a78bfa'); sg.addColorStop(1,'#7c3aed');
+  ctx.fillStyle=sg; ctx.fill();
+  ctx.strokeStyle='rgba(255,255,255,0.3)'; ctx.lineWidth=0.7; ctx.stroke();
+  ctx.beginPath(); ctx.arc(5,0,3.5,0,Math.PI*2); ctx.fillStyle='#c4b5fd'; ctx.fill();
+  ctx.restore();
+}
+
+function drawMinimap(){
+  const mW=130,mH=130,scale=mW/WORLD_SIZE;
+  mctx.clearRect(0,0,mW,mH);
+  mctx.fillStyle='rgba(7,7,16,0.85)'; mctx.fillRect(0,0,mW,mH);
+  NEBULAE.forEach(n=>{
+    mctx.beginPath(); mctx.arc(n.x*scale,n.y*scale,(n.rx+n.ry)/2*scale*0.5,0,Math.PI*2);
+    mctx.fillStyle=`hsla(${n.hue},60%,50%,0.07)`; mctx.fill();
+  });
+  planets.forEach(p=>{
+    mctx.beginPath(); mctx.arc(p.x*scale,p.y*scale,Math.max(2,p.radius*scale*0.7),0,Math.PI*2);
+    mctx.fillStyle=p.discovered?p.color:'rgba(100,100,150,0.5)'; mctx.fill();
+  });
+  const px=player.x*scale,py=player.y*scale;
+  mctx.save(); mctx.translate(px,py); mctx.rotate(player.angle);
+  mctx.beginPath(); mctx.moveTo(4,0); mctx.lineTo(-3,-2); mctx.lineTo(-3,2); mctx.closePath();
+  mctx.fillStyle='#a78bfa'; mctx.fill(); mctx.restore();
+  const vx=(player.x-W/2)*scale,vy=(player.y-H/2)*scale;
+  mctx.strokeStyle='rgba(167,139,250,0.3)'; mctx.lineWidth=0.5;
+  mctx.strokeRect(vx,vy,W*scale,H*scale);
+}
+
+function lighten(hex,pct){
+  const r=parseInt(hex.slice(1,3)||'aa',16),g=parseInt(hex.slice(3,5)||'aa',16),b=parseInt(hex.slice(5,7)||'aa',16);
+  return `rgb(${Math.min(255,r+pct)},${Math.min(255,g+pct)},${Math.min(255,b+pct)})`;
+}
+function darken(hex,pct){
+  const r=parseInt(hex.slice(1,3)||'aa',16),g=parseInt(hex.slice(3,5)||'aa',16),b=parseInt(hex.slice(5,7)||'aa',16);
+  return `rgb(${Math.max(0,r-pct)},${Math.max(0,g-pct)},${Math.max(0,b-pct)})`;
+}
+
+window.render_game_to_text = () => JSON.stringify({
+  player:{x:Math.round(player.x),y:Math.round(player.y),angle:+player.angle.toFixed(2),boost:+player.boost.toFixed(2)},
+  speed:Math.round(Math.hypot(player.vx,player.vy)),
+  discovered:planets.filter(p=>p.discovered).length,
+  nearestPlanet:nearestPlanet?nearestPlanet.name:null,
+});
+window.advanceTime=(ms)=>{ const steps=Math.max(1,Math.round(ms/(1000/60))); for(let i=0;i<steps;i++) update(1/60); render(performance.now()); };
+</script>
+</body>
+</html>
