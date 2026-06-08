@@ -19,7 +19,7 @@ Or clone and open locally:
 ```bash
 git clone https://github.com/your-username/repoverse.git
 cd repoverse
-open repoverse.html   # macOS
+open RepoVerse.html   # macOS
 # or just double-click repoverse.html in your file manager
 ```
 
