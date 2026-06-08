@@ -1,4 +1,4 @@
-# 🌌 RepoVerse
+# 🌌 RepoVerse Fully Vibe Coded (In other words, i did nothing... well i had the idea). 
 
 > **Fly through a 6,000 × 6,000 space world where every planet is a legendary open-source repository.**
 
