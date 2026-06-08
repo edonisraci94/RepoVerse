@@ -18,7 +18,7 @@ Or clone and open locally:
 
 ```bash
 git clone https://github.com/edonisraci94/RepoVerse
-cd repoverse
+cd RepoVerse
 open RepoVerse.html   # macOS
 # or just double-click repoverse.html in your file manager
 ```
