@@ -1,4 +1,6 @@
-# 🌌 RepoVerse Fully Vibe Coded (In other words, i did nothing... well i had the idea). 
+# RepoVerse 
+# Fully Vibe Coded. 
+# I loved the Idea of navigating through the glaxy of open-source.
 
 > **Fly through a 6,000 × 6,000 space world where every planet is a legendary open-source repository.**
 
@@ -183,5 +185,5 @@ Free to use, modify, fork, and deploy. Attribution appreciated but not required.
 ---
 
 <p align="center">
-  Made with 💜 — because open source deserves its own galaxy
+  Made with 💜, because open source deserves its own galaxy... and of course all the hard-working contributers who love software you deserve the biggest THANK YOU of all. 
 </p>
