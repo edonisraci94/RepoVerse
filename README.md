@@ -7,14 +7,14 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-a78bfa.svg)](LICENSE)
 [![Single File](https://img.shields.io/badge/build-single%20HTML-brightgreen)](RepoVerse.html)
 [![No Dependencies](https://img.shields.io/badge/dependencies-none-blue)](RepoVerse.html)
-[![Play Now](https://img.shields.io/badge/▶%20Play-Live%20Demo-7c3aed)](https://github.com/edonisraci94/RepoVerse/blob/main/RepoVerse.html)
+[![Play Now](https://img.shields.io/badge/▶%20Play-Live%20Demo-7c3aed)](https://edonisraci94.github.io/RepoVerse/RepoVerse.html)
 
 
 ---
 
 ## 🚀 Play It
 
-**[▶ Launch RepoVerse](https://github.com/edonisraci94/RepoVerse)** — runs entirely in the browser, no install needed.
+**[▶ Launch RepoVerse](https://edonisraci94.github.io/RepoVerse/RepoVerse.html)**
 
 Or clone and open locally:
 
