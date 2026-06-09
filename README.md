@@ -1,6 +1,6 @@
 # RepoVerse 
-# Fully Vibe Coded. 
-# I loved the Idea of navigating through the glaxy of open-source.
+# Fully Vibe Coded
+# I loved the Idea of navigating through the glaxy of open-source projects
 
 > **Fly through a 6,000 × 6,000 space world where every planet is a legendary open-source repository.**
 
